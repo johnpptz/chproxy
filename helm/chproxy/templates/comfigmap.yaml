@@ -1,0 +1,25 @@
+{{- if $.Values.configMaps }}
+{{- range $id, $configMap := $.Values.configMaps }}
+{{- if $configMap.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ tpl $configMap.name $ | trunc 63 | trimSuffix "-" | trimSuffix "." | quote }}
+  namespace: {{ $.Release.Namespace }}
+  labels: {{ include "metadata.labels" $ | nindent 4 }}
+data:
+  {{- range $key, $value := $configMap.content }}
+    {{- if $value }}
+      {{- if or ( kindIs "float64" $value ) ( kindIs "int" $value ) }}
+        {{- tpl $key $ | nindent 2 }}: {{ $value | toString }}
+      {{- else if and ( kindIs "string" $value ) ( not ( regexMatch ".*\\{\\{.*\\}\\}.*" $value ) ) }}
+        {{- tpl $key $ | nindent 2 }}: {{- tpl ( $value | toYaml ) $ | indent 2 }}
+      {{- else }}
+        {{- tpl $key $ | nindent 2 }}: |- {{- tpl ( $value | toYaml ) $ | trimAll "'" | nindent 4 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
