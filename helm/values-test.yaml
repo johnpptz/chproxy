@@ -1,0 +1,83 @@
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.azure.com/mode
+              operator: NotIn
+              values:
+                - system
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - chproxy
+        topologyKey: kubernetes.io/hostname
+
+annotations:
+  custom-annotation: chproxy
+
+configMaps:
+  mainConfig:
+    enabled: true
+    name: main-config
+    content:
+      serverConfig:
+        caches:
+          - expire: 30s
+            file_system:
+              dir: "/data/cache"
+              max_size: 150Mb
+            grace_time: 5s
+            mode: "file_system"
+            name: "default_cache"
+        users:
+          - cache: "default_cache"
+            name: "default"
+
+extraLabels:
+  service/component: clickhouse
+  service/type: ch-proxy
+
+extraPorts:
+  - containerPort: 8080
+    name: test-port
+    protocol: TCP
+
+imagePullSecrets:
+  - name: master.pull-secret
+
+persistence:
+  enabled: true
+  size: 4Gi
+
+priorityClassName: first-class
+
+secrets:
+  test-one:
+    content:
+      password: super-secret
+      user: db-master
+    enabled: true
+    name: test-secret
+
+terminationGracePeriodSeconds: 60
+
+tolerations:
+  - effect: NoSchedule
+    key: databases/dedicated
+    operator: Equal
+    value: database
+
+topologySpreadConstraints:
+  - labelSelector:
+      matchLabels:
+        app.kubernetes.io/component: chproxy
+        app.kubernetes.io/instance: "{{ .Release.Name }}"
+        app.kubernetes.io/name: chproxy
+    maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
