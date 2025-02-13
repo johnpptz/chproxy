@@ -1,0 +1,93 @@
+affinity: {}
+
+annotations: {}
+
+args:
+  - -config
+  - /config/config.yaml
+
+command: []
+
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+
+extraEnv: {}
+
+extraLabels: {}
+
+extraPorts: []
+
+image:
+  registry: docker.io
+  repository: contentsquareplatform/chproxy
+  tag: v1.26.6
+
+imagePullSecrets: []
+
+nodeSelector: {}
+
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+
+podSecurityContext:
+  runAsGroup: 1001
+  runAsUser: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+persistence:
+  enabled: false
+  size: 8Gi
+
+priorityClassName:
+
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 256Mi
+  requests:
+    cpu: 150m
+    memory: 256Mi
+
+service:
+  port: 9090
+  type: ClusterIP
+
+strategy:
+  type: RollingUpdate
+
+terminationGracePeriodSeconds: 60
+
+tolerations: []
+
+topologySpreadConstraints: []
+
+volumes:
+  - name: config-cm-vol
+    configMap:
+      name: main-config
+      defaultMode: 420
+  - name: tmp-dir
+    emptyDir: {}
+
+volumeMounts:
+  - name: config-cm-vol
+    mountPath: /config/config.yaml
+    subPath: serverConfig
+  - name: tmp-dir
+    mountPath: /tmp
+
+configMaps:
+  mainConfig:
+    enabled: true
+    name: main-config
+    content:
+      serverConfig:
+        #The correct CH proxy configuration in YAML format should be defined here.
+        #Here is the link to the full list of available configuration file options: (https://github.com/contentsquare/chproxy/blob/master/config/testdata/full.yml)
+        #For more information, refer to the official CH proxy documentation.

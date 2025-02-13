@@ -1,0 +1,46 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fullname" . }}
+  labels: {{ include "metadata.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | quote }}
+  sessionAffinity: {{ tpl (default "None" .Values.service.sessionAffinity ) $ | quote }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- range .Values.extraPorts }}
+    {{- with . }}
+    - name: {{ tpl .name $ | quote }}
+      targetPort: {{ tpl .name $ | quote }}
+      port: {{ tpl (.containerPort | toString) $ }}
+      protocol: {{ tpl (default "TCP" .protocol) $ | quote }}
+    {{- end }}
+    {{- end }}
+  selector: {{ include "metadata.matchlabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fullname" . }}-headless
+  labels: {{ include "metadata.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | quote }}
+  clusterIP: None
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- range .Values.extraPorts }}
+    {{- with . }}
+    - name: {{ tpl .name $ | quote }}
+      targetPort: {{ tpl .name $ | quote }}
+      port: {{ tpl (.containerPort | toString) $ }}
+      protocol: {{ tpl (default "TCP" .protocol) $ | quote }}
+    {{- end }}
+    {{- end }}
+  selector: {{ include "metadata.matchlabels" . | nindent 6 }}

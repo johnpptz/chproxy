@@ -1,0 +1,119 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels: {{ include "metadata.labels" . | nindent 4 }}
+  annotations: {{ include "metadata.annotations" . | nindent 4 }}
+  name: {{ include "fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ include "fullname" . }}-headless
+  replicas: {{ .Values.replicaCount | default "1" }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels: {{ include "metadata.matchlabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{ include "metadata.labels" . | nindent 8 }}
+      annotations: {{ include "metadata.annotations" . | nindent 8 }}
+    spec:
+      {{- with .Values.affinity }}
+      affinity:
+        {{- tpl (toYaml . | nindent 8) $ }}
+      {{- end }}
+      {{- if .Values.initContainers }}
+      initContainers:
+          {{- tpl (toYaml .Values.initContainers | nindent 8) $ }}
+      {{- end }}
+      containers:
+        - name: {{ include "name" . }}
+          image: {{ tpl .Values.image.registry $ }}/{{ tpl .Values.image.repository $ }}:{{ tpl .Values.image.tag $ }}
+          imagePullPolicy: {{ default "IfNotPresent" .Values.image.imagePullPolicy }}
+          {{- if .Values.extraEnv }}
+          env: {{- tpl ( toYaml .Values.extraEnv ) $ | nindent 10 }}
+          {{- end }}
+          {{- with .Values.command }}
+          command:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: http
+              protocol: TCP
+            {{- range .Values.extraPorts }}
+            {{- with . }}
+            - name: {{ tpl .name $ | quote }}
+              containerPort: {{ tpl (.containerPort | toString) $ }}
+              protocol: {{ tpl (default "TCP" .protocol) $ | quote }}
+            {{- end }}
+            {{- end }}
+          {{- if .Values.containerSecurityContext }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.persistence.enabled .Values.volumeMounts }}
+          volumeMounts:
+            {{- if .Values.volumeMounts }}
+            {{- tpl (toYaml .Values.volumeMounts | nindent 12) $ }}
+            {{- end }}
+            {{- if .Values.persistence.enabled }}
+            - mountPath: {{ default "/request-cache" .Values.persistence.mountPath }}
+              name: data
+            {{- end }}
+          {{- end }}
+      {{- if .Values.volumes }}
+      volumes:
+        {{- tpl (toYaml .Values.volumes | nindent 10) $ }}
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets: {{- tpl (toYaml .Values.imagePullSecrets | nindent 8) $ }}
+      {{- end }}
+      restartPolicy: Always
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ tpl .Values.priorityClassName $ }}
+      {{- end }}
+      {{- if .Values.podSecurityContext }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ default "30" .Values.terminationGracePeriodSeconds }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- tpl ( toYaml .Values.tolerations ) $ | nindent 8 }}
+      {{- end }}
+      {{- if .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- tpl ( toYaml .Values.topologySpreadConstraints ) $ | nindent 8 }}
+      {{- end }}
+  updateStrategy:
+    type: {{ default "RollingUpdate" .Values.strategyType | quote }}
+  {{ if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+        {{- range (default (list "ReadWriteOnce") .Values.persistence.accessModes) }}
+          - {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | quote }}
+        storageClassName: {{ default "default" .Values.persistence.pvcStorageClassName }}
+  {{- end }}
